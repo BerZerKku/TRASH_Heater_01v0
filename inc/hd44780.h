@@ -41,4 +41,7 @@ extern uint8_t getPos();
 // основной цикл работы ЖКИ, вызывать раз в 1мс
 extern void cycleLcd(void);
 
+// обновление информации на экране
+extern void refreshLcd(void);
+
 #endif /* HD44780_H_ */

@@ -170,7 +170,9 @@ int main(void)
 	fdevopen(&lcdPutchar,NULL);
 
 	setPos(1, 1);
-	printf("12345678901234567890123456");
+	printf("юабцде╗фгхийклмн");
+	setPos(2, 1);
+	printf("опярстужвьызшэщч");
 
 	sei();
 
@@ -197,11 +199,13 @@ int main(void)
 			}
 			b500ms = false;
 
-			setPos(1, 1);
-			printf("%d", tmp % 10);
-			setPos(2, 1);
-			printf("%d", tmp % 10);
-			tmp++;
+//			setPos(1, 1);
+//			printf("%d", tmp % 10);
+//			setPos(2, 1);
+//			printf("%d", tmp % 10);
+//			tmp++;
+
+			refreshLcd();
 		}
 	};
 }
