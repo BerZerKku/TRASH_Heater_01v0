@@ -38,14 +38,15 @@ int lcdPutchar(char c, FILE *stream)
 		if ((c >= 'А') && (c <= 'я'))
 			c = pgm_read_byte(decode + (c - 'А'));
 
-		if (c != '0x00')
+		// символ окончания строки игнорируется
+		if (c != 0x00)
 			bufLcd[pos++] = c;
 	}
 
 	return 0;
 }
 
-int8_t setPos(uint8_t row, uint8_t col)
+int8_t setPosLcd(uint8_t row, uint8_t col)
 {
 	int8_t p = (row - 1)*LCD_NUM_COL + col - 1;
 
@@ -59,7 +60,7 @@ int8_t setPos(uint8_t row, uint8_t col)
 	return p;
 }
 
-uint8_t getPos()
+uint8_t getPosLcd()
 {
 	return pos;
 }
@@ -111,7 +112,6 @@ void cycleLcd(void)
 
 	if (sost == LCD_SOST_PRINT)
 	{
-		PORTD |= (1 << PD7);
 		// вывод на экран текущего символа
 		tmp = bufLcd[curIndex++];
 		writeData(tmp >> 4);
@@ -133,7 +133,6 @@ void cycleLcd(void)
 			tmp = 0x80;
 			curIndex = 0;
 			sost = LCD_SOST_NO;
-			PORTD &= ~(1 << PD7);
 		}
 		else if (tmp == 1)
 			tmp = 0xC0;
@@ -217,11 +216,9 @@ void initLcd(void)
 {
 	uint8_t tmp = 0;
 
-	// очистка буфера
-	for (uint_fast8_t i = 0; i < LCD_NUM_CHAR; i++)
-		bufLcd[i] = ' ';
+	clearLcd();
 
-	setPos(0, 0);
+	setPosLcd(0, 0);
 
 	// настройка портов ЖКИ
 	tmp = PORT_LCD_MASK;
@@ -238,3 +235,8 @@ void refreshLcd(void)
 		sost = LCD_SOST_PRINT;
 }
 
+void clearLcd(void)
+{
+	for (uint_fast8_t i = 0; i < LCD_NUM_CHAR; i++)
+			bufLcd[i] = ' ';
+}

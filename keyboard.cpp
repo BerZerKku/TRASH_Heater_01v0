@@ -55,20 +55,14 @@ void scanKey(void)
 		{
 			tmp = ~tmp;
 			// проверим нажатую кнопку
-			if (tmp & (1 << PIN_BUT_PUSK))
-				key = KEY_PUSK;
-			else if (tmp & (1 << PIN_BUT_RES))
-				key = KEY_RES;
-			else if (tmp & (1 << PIN_BUT_SET))
-				key = KEY_SET;
+			if (tmp & (1 << PIN_BUT_SAVE))
+				key = KEY_SAVE;
+			else if (tmp & (1 << PIN_BUT_MENU))
+				key = KEY_MENU;
 			else if (tmp & (1 << PIN_BUT_INC))
 				key = KEY_INC;
 			else if (tmp & (1 << PIN_BUT_DEC))
 				key = KEY_DEC;
-			else if (tmp & (1 << PIN_BUT_SEL))
-				key = KEY_SEL;
-			else if (tmp & (1 << PIN_BUT_TIME))
-				key = KEY_TIME;
 			else
 				key = KEY_NO;
 

@@ -33,15 +33,18 @@ extern void initLcd(void);
 
 // установка текущей позиции курсора на экране
 // возвращает установленный индекс массива, либо -1 в случае выхода за диапазон
-extern int8_t setPos(uint8_t row, uint8_t col);
+extern int8_t setPosLcd(uint8_t row, uint8_t col);
 
 // возвращает текущий индекс массива
-extern uint8_t getPos();
+extern uint8_t getPosLcd();
 
 // основной цикл работы ЖКИ, вызывать раз в 1мс
 extern void cycleLcd(void);
 
 // обновление информации на экране
 extern void refreshLcd(void);
+
+// очистка экрана
+extern void clearLcd(void);
 
 #endif /* HD44780_H_ */

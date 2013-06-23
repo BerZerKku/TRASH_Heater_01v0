@@ -41,7 +41,7 @@ static void init(void);
 static void ctrlOut(void);
 
 // обработчик нажати€ кнопки
-static void keyboard(KEYS key);
+//static void keyboard(KEYS key);
 
 // установка начальных значений дл€ нового цикла
 static void ctrlNewCycle(void);
@@ -57,6 +57,9 @@ static uint8_t timeOut2on = 3;
 // врем€ выключени€ первой нагрузки
 static uint8_t cntOut1off = 0;
 static uint8_t timeOut1off = 10;
+// указатель на измен€емую переменную
+static uint8_t *editParam = &timeOut1on;
+
 // текущее состо€ние стоп = false / пуск = true
 static SOST sost = SOST_STOP;
 
@@ -141,25 +144,40 @@ void ctrlOut(void)
 	}
 }
 
+//static
+//void keyboard(KEYS key)
+//{
+//	switch(key)
+//	{
+//		case KEY_PUSK:
+//			ctrlNewCycle();
+//			if (sost == SOST_STOP)
+//				sost = SOST_PUSK;
+//			else
+//				sost = SOST_STOP;
+//			break;
+//	}
+//}
+
 static
-void keyboard(KEYS key)
+void editParameter(void)
 {
-	switch(key)
-	{
-		case KEY_PUSK:
-			ctrlNewCycle();
-			if (sost == SOST_STOP)
-				sost = SOST_PUSK;
-			else
-				sost = SOST_STOP;
-			break;
-	}
+	setPosLcd(1, 1);
+	printf("+A");
+	setPosLcd(2, 1);
+	printf("-V");
+	setPosLcd(1, 4);
+	// вывод на экран времени 00,0
+	printf("%02d,%d", *editParam/2, (*editParam%2)*5);
+	setPosLcd(2, LCD_NUM_COL - 5);
+	printf("< SOHR");
 }
 
 __attribute((OS_main))
 int main(void)
 {
 	char tmp = 0;
+	uint8_t lvl_menu = 0;
 
 	init();
 	initLcd();
@@ -169,9 +187,9 @@ int main(void)
 
 	fdevopen(&lcdPutchar,NULL);
 
-	setPos(1, 1);
+	setPosLcd(1, 1);
 	printf("јЅ¬√ƒ≈®∆«»… ЋћЌќ");
-	setPos(2, 1);
+	setPosLcd(2, 1);
 	printf("ѕ–—“”‘’÷„ЎўЏџ№Ёё");
 
 	sei();
@@ -180,12 +198,12 @@ int main(void)
 	{
 		if (b500ms)
 		{
-			// обработка нажати€ кнопки
-			KEYS key = getKey();
-			if (key != KEY_NO)
-			{
-				keyboard(key);
-			}
+//			KEYS key = getKey();
+//			if (key != KEY_NO)
+//			{
+//				keyboard(key);
+//				PORT_TEST ^= (1 << PORT_TEST_1);
+//			}
 
 			// управление выходами осуществл€етс€ только при пуске
 			// иначе выходы выкл.
@@ -199,11 +217,180 @@ int main(void)
 			}
 			b500ms = false;
 
-//			setPos(1, 1);
+//			setPosLcd(1, 1);
 //			printf("%d", tmp % 10);
-//			setPos(2, 1);
+//			setPosLcd(2, 1);
 //			printf("%d", tmp % 10);
 //			tmp++;
+
+			clearLcd();
+
+			KEYS key = getKey();
+			switch(lvl_menu)
+			{
+				case 0:
+					setPosLcd(1, 5);
+					printf("%02d,%d", timeOut1on/2, (timeOut1on%2)*5);
+					setPosLcd(2, 1);
+					printf("+ TURBO");
+					setPosLcd(2, LCD_NUM_COL - 5);
+					printf("MENU >");
+
+					if (key == KEY_MENU)
+					{
+						lvl_menu = 1;
+					}
+					break;
+				case 1:
+					setPosLcd(1, 1);
+					printf("TAIMER RABOTA");
+					setPosLcd(2, LCD_NUM_COL - 10);
+					printf("USTANOVKA >");
+
+					if (key == KEY_MENU)
+					{
+						lvl_menu = 2;
+						editParam = &timeOut1on;
+					}
+					break;
+				case 2:
+					editParameter();
+
+					if (key == KEY_SAVE)
+					{
+						lvl_menu = 3;
+					}
+					else if (key == KEY_INC)
+					{
+						(*editParam)++;
+					}
+					else if (key == KEY_DEC)
+					{
+						(*editParam)--;
+					}
+
+					if (*editParam > 120)
+						*editParam = 2;
+					else if (*editParam < 2)
+						*editParam = 2;
+					break;
+				case 3:
+					setPosLcd(1, 1);
+					printf("TAIMER PAUSA");
+					setPosLcd(2, LCD_NUM_COL - 10);
+					printf("USTANOVKA >");
+
+					if (key == KEY_MENU)
+					{
+						lvl_menu = 4;
+						editParam = &timeOut1off;
+					}
+					break;
+				case 4:
+					editParameter();
+
+					if (key == KEY_SAVE)
+					{
+						lvl_menu = 5;
+					}
+					else if (key == KEY_INC)
+					{
+						(*editParam)++;
+					}
+					else if (key == KEY_DEC)
+					{
+						(*editParam)--;
+					}
+					break;
+
+					if (*editParam > 120)
+						*editParam = 2;
+					else if (*editParam < 2)
+						*editParam = 2;
+				case 5:
+					setPosLcd(1, 1);
+					printf("TAIMER N2");
+					setPosLcd(2, LCD_NUM_COL - 10);
+					printf("USTANOVKA >");
+
+					if (key == KEY_MENU)
+					{
+						lvl_menu = 6;
+						editParam = &timeOut2on;
+						tmp = 0;
+					}
+					break;
+				case 6:
+					editParameter();
+
+					if (key == KEY_SAVE)
+					{
+						tmp = 1;
+					}
+					else if (key == KEY_INC)
+					{
+
+						if (tmp == 1)
+						{
+							lvl_menu = 7;
+							if (sost == SOST_STOP)
+								sost = SOST_PUSK;
+						}
+						else
+							(*editParam)++;
+					}
+					else if (key == KEY_DEC)
+					{
+						(*editParam)--;
+					}
+					break;
+
+					if (*editParam > 60)
+						*editParam = 2;
+					else if (*editParam < 2)
+						*editParam = 2;
+				case 7:
+					if (cntOut1on > 0)
+					{
+						setPosLcd(1, 7);
+						tmp = timeOut1on - cntOut1on;
+						printf("%02d,%d", (tmp/2), (tmp%2)*5);
+						setPosLcd(2, 3);
+						printf("RABOTA SCHET");
+					}
+					else
+					{
+						setPosLcd(1, 7);
+						tmp = timeOut1off - cntOut1off;
+						printf("%02d,%d", (tmp/2), (tmp%2)*5);
+						setPosLcd(2, 3);
+						printf("PAUZA SCHET");
+					}
+
+					if (key == KEY_SAVE)
+					{
+						lvl_menu = 8;
+					}
+					else if (key == KEY_INC)
+					{
+						if (sost == SOST_PUSK)
+							sost = SOST_STOP;
+						lvl_menu = 0;
+					}
+					break;
+				case 8:
+					setPosLcd(1, 6);
+					printf("%02d,%dR", (timeOut1on/2), (timeOut1on%2)*5);
+					setPosLcd(2, 6);
+					printf("%02d,%dR", (timeOut1off/2), (timeOut1off%2)*5);
+
+					if (key == KEY_SAVE)
+					{
+						lvl_menu = 7;
+					}
+					break;
+			}
+
 
 			refreshLcd();
 		}

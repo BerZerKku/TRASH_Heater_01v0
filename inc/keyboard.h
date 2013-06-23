@@ -11,30 +11,22 @@
 enum KEYS
 {
 	KEY_NO = 0,
-	KEY_PUSK,
-	KEY_RES,
-	KEY_SET,
+	KEY_SAVE,
+	KEY_MENU,
 	KEY_INC,
-	KEY_DEC,
-	KEY_SEL,
-	KEY_TIME
+	KEY_DEC
 };
 
 // клавиатура
 #define PORT_BUT 		PORTD
 #define PIN_BUT			PIND
 #define DDR_BUT 		DDRD
-#define PIN_BUT_PUSK 	PIND0
-#define PIN_BUT_RES 	PIND1
-#define PIN_BUT_SET 	PIND2
-#define PIN_BUT_INC 	PIND3
-#define PIN_BUT_DEC 	PIND4
-#define PIN_BUT_SEL 	PIND5
-#define PIN_BUT_TIME 	PIND6
-#define PIN_BUT_MASK	((1 << PIN_BUT_PUSK) | (1 << PIN_BUT_RES) | \
-						 (1 << PIN_BUT_SET)	 | (1 << PIN_BUT_INC) | \
-						 (1 << PIN_BUT_DEC)	 | (1 << PIN_BUT_SEL) | \
-						 (1 << PIN_BUT_TIME))
+#define PIN_BUT_SAVE 	PIND0
+#define PIN_BUT_MENU 	PIND1
+#define PIN_BUT_INC 	PIND2
+#define PIN_BUT_DEC 	PIND3
+#define PIN_BUT_MASK	((1 << PIN_BUT_SAVE) | (1 << PIN_BUT_MENU) | \
+						 (1 << PIN_BUT_INC)	 | (1 << PIN_BUT_DEC))
 
 #define TIME_DELAY 5
 
