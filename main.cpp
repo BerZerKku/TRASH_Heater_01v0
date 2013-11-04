@@ -190,7 +190,7 @@ void editParameterMenu(uint8_t value = 0)
 	printf("-V");
 	setPosLcd(1, 4);
 	// вывод на экран времени 00,0
-	printf("%02d,%d", value/2, (value%2)*5);
+	printf("%02d,%d", value/freq_cycle, (value%freq_cycle)*5);
 	setPosLcd(2, LCD_NUM_COL - 5);
 	printf("< SOHR");
 }
@@ -288,9 +288,11 @@ int main(void)
 				// вывод на экран текущих настроек
 				help--;
 				setPosLcd(1, 6);
-				printf("%02d,%dR", (timeOut1on/2), (timeOut1on%2)*5);
+				printf("%02d,%dR", 	(timeOut1on/freq_cycle),
+									(timeOut1on%freq_cycle)*5);
 				setPosLcd(2, 6);
-				printf("%02d,%dP", (timeOut1off/2), (timeOut1off%2)*5);
+				printf("%02d,%dP",  (timeOut1off/freq_cycle),
+									(timeOut1off%freq_cycle)*5);
 				if (key == KEY_SAVE)
 				{
 					help = 0;
@@ -303,7 +305,8 @@ int main(void)
 				{
 				case LVL_START:
 					setPosLcd(1, 5);
-					printf("%02d,%d", timeOut1on/2, (timeOut1on%2)*5);
+					printf("%02d,%d", 	timeOut1on/freq_cycle,
+										(timeOut1on%freq_cycle)*5);
 					setPosLcd(2, 1);
 					printf("+ TURBO");
 					setPosLcd(2, LCD_NUM_COL - 5);
@@ -403,7 +406,7 @@ int main(void)
 					{
 						setPosLcd(1, 7);
 						tmp = timeOut1on - cntOut1on;
-						printf("%02d,%d", (tmp/2), (tmp%2)*5);
+						printf("%02d,%d", (tmp/freq_cycle), (tmp%freq_cycle)*5);
 						setPosLcd(2, 3);
 						printf("RABOTA SCHET");
 					}
@@ -411,7 +414,7 @@ int main(void)
 					{
 						setPosLcd(1, 7);
 						tmp = timeOut1off - cntOut1off;
-						printf("%02d,%d", (tmp/2), (tmp%2)*5);
+						printf("%02d,%d", (tmp/freq_cycle), (tmp%freq_cycle)*5);
 						setPosLcd(2, 3);
 						printf("PAUZA SCHET");
 					}
