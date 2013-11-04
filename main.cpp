@@ -7,9 +7,14 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
+#include <avr/eeprom.h>
 #include <stdio.h>
 #include "inc/hd44780.h"
 #include "inc/keyboard.h"
+
+const uint8_t* eeprom_time_1_on = (uint8_t*) 0x16;
+const uint8_t* eeprom_time_1_off = (uint8_t*) 0x17;
+const uint8_t* eeprom_time_2_on = (uint8_t*) 0x18;
 
 
 // выходы управления
@@ -48,21 +53,34 @@ static void ctrlNewCycle(void);
 
 // флаг 500мс
 static volatile bool b500ms = false;
+
+// частота циклов, Гц
+static const uint8_t freq_cycle = 2;
+// значения таймеров устанаваливаются в секундах
 // время включения первой нагрузки
 static uint8_t cntOut1on = 0;
 static uint8_t timeOut1on = 5;
+static const uint8_t time_out_1_on_min = 1 * freq_cycle;
+static const uint8_t time_out_1_on_max = 60 * freq_cycle;
 // время включения второй нагрузки
 static uint8_t cntOut2on = 0;
 static uint8_t timeOut2on = 3;
+static const uint8_t time_out_2_on_min = 1 * freq_cycle;
+static const uint8_t time_out_2_on_max = 30 * freq_cycle;
 // время выключения первой нагрузки
 static uint8_t cntOut1off = 0;
 static uint8_t timeOut1off = 10;
+static const uint8_t time_out_1_off_min = 1 * freq_cycle;
+static const uint8_t time_out_1_off_max = 60 * freq_cycle;
+
+// время отображения помощи
+static const uint8_t time_help = 5 * freq_cycle;
+
 // указатель на изменяемую переменную
 static uint8_t *editParam = &timeOut1on;
 
 // текущее состояние стоп = false / пуск = true
 static SOST sost = SOST_STOP;
-
 
 static
 void init(void)
@@ -173,25 +191,47 @@ void editParameter(void)
 	printf("< SOHR");
 }
 
+static
+void getParamFromEeprom()
+{
+	uint8_t tmp = 0;
+
+	tmp = eeprom_read_byte(eeprom_time_1_on);
+	if ((tmp >= time_out_1_on_min) && (tmp <= time_out_1_on_max))
+		timeOut1on = tmp;
+	else
+		timeOut1on = time_out_1_on_min;
+
+	tmp = eeprom_read_byte(eeprom_time_1_off);
+	if ((tmp >= time_out_1_off_min) && (tmp <= time_out_1_off_max))
+		timeOut1off = tmp;
+	else
+		timeOut1off = time_out_1_off_max;
+
+	tmp = eeprom_read_byte(eeprom_time_2_on);
+	if ((tmp >= time_out_2_on_min) && (tmp <= time_out_2_on_max))
+		timeOut2on = tmp;
+	else
+		timeOut2on = time_out_2_on_min;
+
+}
+
 __attribute((OS_main))
 int main(void)
 {
 	char tmp = 0;
 	uint8_t lvl_menu = 0;
+	uint8_t help = 0;
 
 	init();
 	initLcd();
 	initKeyboard();
 
+	getParamFromEeprom();
+
 	ctrlNewCycle();
 
 	fdevopen(&lcdPutchar,NULL);
-
-	setPosLcd(1, 1);
-	printf("АБВГДЕЁЖЗИЙКЛМНО");
-	setPosLcd(2, 1);
-	printf("ПРСТУФХЦЧШЩЪЫЬЭЮ");
-
 	sei();
 
 	while(1)
@@ -226,8 +266,22 @@ int main(void)
 			clearLcd();
 
 			KEYS key = getKey();
-			switch(lvl_menu)
+			if (help > 0)
 			{
+				help--;
+				setPosLcd(1, 6);
+				printf("%02d,%dR", (timeOut1on/2), (timeOut1on%2)*5);
+				setPosLcd(2, 6);
+				printf("%02d,%dP", (timeOut1off/2), (timeOut1off%2)*5);
+				if (key == KEY_SAVE)
+				{
+					help = 0;
+				}
+			}
+			else
+			{
+				switch(lvl_menu)
+				{
 				case 0:
 					setPosLcd(1, 5);
 					printf("%02d,%d", timeOut1on/2, (timeOut1on%2)*5);
@@ -239,6 +293,10 @@ int main(void)
 					if (key == KEY_MENU)
 					{
 						lvl_menu = 1;
+					}
+					else if (key == KEY_SAVE)
+					{
+						help = time_help;
 					}
 					break;
 				case 1:
@@ -269,9 +327,9 @@ int main(void)
 						(*editParam)--;
 					}
 
-					if (*editParam > 120)
+					if (*editParam > time_out_1_on_max)
 						*editParam = 2;
-					else if (*editParam < 2)
+					else if (*editParam < time_out_1_on_min)
 						*editParam = 2;
 					break;
 				case 3:
@@ -303,9 +361,9 @@ int main(void)
 					}
 					break;
 
-					if (*editParam > 120)
+					if (*editParam > time_out_1_off_max)
 						*editParam = 2;
-					else if (*editParam < 2)
+					else if (*editParam < time_out_1_off_min)
 						*editParam = 2;
 				case 5:
 					setPosLcd(1, 1);
@@ -345,9 +403,9 @@ int main(void)
 					}
 					break;
 
-					if (*editParam > 60)
+					if (*editParam > time_out_2_on_max)
 						*editParam = 2;
-					else if (*editParam < 2)
+					else if (*editParam < time_out_2_on_min)
 						*editParam = 2;
 				case 7:
 					if (cntOut1on > 0)
@@ -367,31 +425,19 @@ int main(void)
 						printf("PAUZA SCHET");
 					}
 
-					if (key == KEY_SAVE)
-					{
-						lvl_menu = 8;
-					}
-					else if (key == KEY_INC)
+					if (key == KEY_INC)
 					{
 						if (sost == SOST_PUSK)
 							sost = SOST_STOP;
 						lvl_menu = 0;
 					}
-					break;
-				case 8:
-					setPosLcd(1, 6);
-					printf("%02d,%dR", (timeOut1on/2), (timeOut1on%2)*5);
-					setPosLcd(2, 6);
-					printf("%02d,%dR", (timeOut1off/2), (timeOut1off%2)*5);
-
-					if (key == KEY_SAVE)
+					else if (key == KEY_SAVE)
 					{
-						lvl_menu = 7;
+						help = time_help;
 					}
 					break;
+				}
 			}
-
-
 			refreshLcd();
 		}
 	};
