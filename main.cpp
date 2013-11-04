@@ -12,9 +12,9 @@
 #include "inc/hd44780.h"
 #include "inc/keyboard.h"
 
-const uint8_t* eeprom_time_1_on = (uint8_t*) 0x16;
-const uint8_t* eeprom_time_1_off = (uint8_t*) 0x17;
-const uint8_t* eeprom_time_2_on = (uint8_t*) 0x18;
+uint8_t* const eeprom_time_1_on = (uint8_t*) 0x16;
+uint8_t* const eeprom_time_1_off = (uint8_t*) 0x17;
+uint8_t* const eeprom_time_2_on = (uint8_t*) 0x18;
 
 
 // выходы управления
@@ -30,26 +30,48 @@ const uint8_t* eeprom_time_2_on = (uint8_t*) 0x18;
 #define DDR_TEST		DDRD
 #define PORT_TEST_1		PD7
 
-enum SOST
+enum dSOST
 {
 	SOST_STOP,
-	SOST_PUSK,
-	SOST_EDIT_T1_ON,
-	SOST_EDIT_T2_ON,
-	SOST_EDIT_T1_OFF
+	SOST_PUSK
+};
+
+enum dLVL_MENU
+{
+	LVL_START,
+	LVL_TIME_1_ON,
+	LVL_TIME_1_ON_EDIT = LVL_TIME_1_ON + 1,
+	LVL_TIME_1_OFF,
+	LVL_TIME_1_OFF_EDIT = LVL_TIME_1_OFF + 1,
+	LVL_TIME_2_ON,
+	LVL_TIME_2_ON_EDIT = LVL_TIME_2_ON + 1,
+	LVL_WORK
 };
 
 // инициализация используемой периферии
-static void init(void);
-
-// управление выходами
-static void ctrlOut(void);
-
-// обработчик нажатия кнопки
-//static void keyboard(KEYS key);
+static void init();
 
 // установка начальных значений для нового цикла
-static void ctrlNewCycle(void);
+static void ctrlNewCycle();
+
+// управление выходами
+static void ctrlOut();
+
+// выводит на экран меню редактирования параметра
+static void editParameterMenu(uint8_t value);
+
+// увеличение значения параметра, с проверкой на максимальное значение
+static uint8_t incValue(uint8_t value, uint8_t max);
+
+// уменьшение значения параметра, с проверкой на минимальное значение
+static uint8_t decValue(uint8_t value, uint8_t min);
+
+// загрузка значений параметров из ЕЕПРОМ
+// по-умолчанию будут выставлены минимальное время работы и максимальная пауза
+static void loadParamFromEeprom();
+
+// запись значений параметров в ЕЕПРОМ
+static void saveParamToEeprom();
 
 // флаг 500мс
 static volatile bool b500ms = false;
@@ -76,11 +98,8 @@ static const uint8_t time_out_1_off_max = 60 * freq_cycle;
 // время отображения помощи
 static const uint8_t time_help = 5 * freq_cycle;
 
-// указатель на изменяемую переменную
-static uint8_t *editParam = &timeOut1on;
-
 // текущее состояние стоп = false / пуск = true
-static SOST sost = SOST_STOP;
+static dSOST sost = SOST_STOP;
 
 static
 void init(void)
@@ -104,7 +123,7 @@ void init(void)
 	TIMSK |= (1 << OCIE2);
 
 	// инициализация таймера 1
-	// (1Мгц / 8) / 12500 = 100vc
+	// (1Мгц / 8) / 12500 = 100мс
 	TCCR1A = (0 << WGM11) | (0 << WGM10); 	//
 	TCCR1B = (0 << WGM13) | (1 << WGM12);	// режим СТС
 	OCR1A = 62500 - 1;
@@ -162,23 +181,8 @@ void ctrlOut(void)
 	}
 }
 
-//static
-//void keyboard(KEYS key)
-//{
-//	switch(key)
-//	{
-//		case KEY_PUSK:
-//			ctrlNewCycle();
-//			if (sost == SOST_STOP)
-//				sost = SOST_PUSK;
-//			else
-//				sost = SOST_STOP;
-//			break;
-//	}
-//}
-
 static
-void editParameter(void)
+void editParameterMenu(uint8_t value = 0)
 {
 	setPosLcd(1, 1);
 	printf("+A");
@@ -186,13 +190,25 @@ void editParameter(void)
 	printf("-V");
 	setPosLcd(1, 4);
 	// вывод на экран времени 00,0
-	printf("%02d,%d", *editParam/2, (*editParam%2)*5);
+	printf("%02d,%d", value/2, (value%2)*5);
 	setPosLcd(2, LCD_NUM_COL - 5);
 	printf("< SOHR");
 }
 
 static
-void getParamFromEeprom()
+uint8_t incValue(uint8_t value, uint8_t max)
+{
+	return (value < max) ? value + 1 : max;
+}
+
+static
+uint8_t decValue(uint8_t value, uint8_t min)
+{
+	return (value > min) ? value - 1 : min;
+}
+
+static
+void loadParamFromEeprom()
 {
 	uint8_t tmp = 0;
 
@@ -216,18 +232,32 @@ void getParamFromEeprom()
 
 }
 
+static
+void saveParamToEeprom()
+{
+	eeprom_update_byte(eeprom_time_1_on, timeOut1on);
+	eeprom_update_byte(eeprom_time_1_off, timeOut1off);
+	eeprom_update_byte(eeprom_time_2_on, timeOut2on);
+}
+
 __attribute((OS_main))
 int main(void)
 {
 	char tmp = 0;
-	uint8_t lvl_menu = 0;
+	dLVL_MENU eLvlMenu = LVL_START;
 	uint8_t help = 0;
+
+	// редактирование значения параметра
+	uint8_t *enterParam = &timeOut1on;
+	uint8_t enterValue = 0;
+	uint8_t enterValueMin = 0;
+	uint8_t enterValueMax = 0;
 
 	init();
 	initLcd();
 	initKeyboard();
 
-	getParamFromEeprom();
+	loadParamFromEeprom();
 
 	ctrlNewCycle();
 
@@ -238,12 +268,7 @@ int main(void)
 	{
 		if (b500ms)
 		{
-//			KEYS key = getKey();
-//			if (key != KEY_NO)
-//			{
-//				keyboard(key);
-//				PORT_TEST ^= (1 << PORT_TEST_1);
-//			}
+			b500ms = false;
 
 			// управление выходами осуществляется только при пуске
 			// иначе выходы выкл.
@@ -255,19 +280,12 @@ int main(void)
 			{
 				PORT_CTRL &= ~((1 << PORT_CTRL_1) | (1 << PORT_CTRL_2));
 			}
-			b500ms = false;
-
-//			setPosLcd(1, 1);
-//			printf("%d", tmp % 10);
-//			setPosLcd(2, 1);
-//			printf("%d", tmp % 10);
-//			tmp++;
 
 			clearLcd();
-
 			KEYS key = getKey();
 			if (help > 0)
 			{
+				// вывод на экран текущих настроек
 				help--;
 				setPosLcd(1, 6);
 				printf("%02d,%dR", (timeOut1on/2), (timeOut1on%2)*5);
@@ -280,9 +298,10 @@ int main(void)
 			}
 			else
 			{
-				switch(lvl_menu)
+				// вывод на экран текущего уровня меню
+				switch(eLvlMenu)
 				{
-				case 0:
+				case LVL_START:
 					setPosLcd(1, 5);
 					printf("%02d,%d", timeOut1on/2, (timeOut1on%2)*5);
 					setPosLcd(2, 1);
@@ -292,14 +311,27 @@ int main(void)
 
 					if (key == KEY_MENU)
 					{
-						lvl_menu = 1;
+						eLvlMenu = LVL_TIME_1_ON;
 					}
 					else if (key == KEY_SAVE)
 					{
 						help = time_help;
 					}
+					else if (key == KEY_INC_LONG)
+					{
+						if (sost == SOST_STOP)
+						{
+							sost = SOST_PUSK;
+							eLvlMenu = LVL_WORK;
+						}
+						else
+						{
+							sost = SOST_STOP;
+							ctrlNewCycle();
+						}
+					}
 					break;
-				case 1:
+				case LVL_TIME_1_ON:
 					setPosLcd(1, 1);
 					printf("TAIMER RABOTA");
 					setPosLcd(2, LCD_NUM_COL - 10);
@@ -307,32 +339,36 @@ int main(void)
 
 					if (key == KEY_MENU)
 					{
-						lvl_menu = 2;
-						editParam = &timeOut1on;
+						eLvlMenu = LVL_TIME_1_ON_EDIT;
+						enterParam = &timeOut1on;
+						enterValue = *enterParam;
+						enterValueMin = time_out_1_on_min;
+						enterValueMax = time_out_1_on_max;
 					}
 					break;
-				case 2:
-					editParameter();
+				case LVL_TIME_1_ON_EDIT:
+				case LVL_TIME_1_OFF_EDIT:
+				case LVL_TIME_2_ON_EDIT:
+					editParameterMenu(enterValue);
 
 					if (key == KEY_SAVE)
 					{
-						lvl_menu = 3;
+						*enterParam = enterValue;
+						if (eLvlMenu == LVL_TIME_2_ON_EDIT)
+							eLvlMenu = LVL_START;
+						else
+							eLvlMenu = static_cast<dLVL_MENU> (eLvlMenu + 1);
 					}
 					else if (key == KEY_INC)
 					{
-						(*editParam)++;
+						enterValue = incValue(enterValue, enterValueMax);
 					}
 					else if (key == KEY_DEC)
 					{
-						(*editParam)--;
+						enterValue = decValue(enterValue, enterValueMin);
 					}
-
-					if (*editParam > time_out_1_on_max)
-						*editParam = 2;
-					else if (*editParam < time_out_1_on_min)
-						*editParam = 2;
 					break;
-				case 3:
+				case LVL_TIME_1_OFF:
 					setPosLcd(1, 1);
 					printf("TAIMER PAUSA");
 					setPosLcd(2, LCD_NUM_COL - 10);
@@ -340,32 +376,14 @@ int main(void)
 
 					if (key == KEY_MENU)
 					{
-						lvl_menu = 4;
-						editParam = &timeOut1off;
+						eLvlMenu = LVL_TIME_1_OFF_EDIT;
+						enterParam = &timeOut1off;
+						enterValue = *enterParam;
+						enterValueMin = time_out_1_off_min;
+						enterValueMax = time_out_1_off_max;
 					}
 					break;
-				case 4:
-					editParameter();
-
-					if (key == KEY_SAVE)
-					{
-						lvl_menu = 5;
-					}
-					else if (key == KEY_INC)
-					{
-						(*editParam)++;
-					}
-					else if (key == KEY_DEC)
-					{
-						(*editParam)--;
-					}
-					break;
-
-					if (*editParam > time_out_1_off_max)
-						*editParam = 2;
-					else if (*editParam < time_out_1_off_min)
-						*editParam = 2;
-				case 5:
+				case LVL_TIME_2_ON:
 					setPosLcd(1, 1);
 					printf("TAIMER N2");
 					setPosLcd(2, LCD_NUM_COL - 10);
@@ -373,41 +391,14 @@ int main(void)
 
 					if (key == KEY_MENU)
 					{
-						lvl_menu = 6;
-						editParam = &timeOut2on;
-						tmp = 0;
+						eLvlMenu = LVL_TIME_2_ON_EDIT;
+						enterParam = &timeOut2on;
+						enterValue = *enterParam;
+						enterValueMin = time_out_2_on_min;
+						enterValueMax = time_out_2_on_max;
 					}
 					break;
-				case 6:
-					editParameter();
-
-					if (key == KEY_SAVE)
-					{
-						tmp = 1;
-					}
-					else if (key == KEY_INC)
-					{
-
-						if (tmp == 1)
-						{
-							lvl_menu = 7;
-							if (sost == SOST_STOP)
-								sost = SOST_PUSK;
-						}
-						else
-							(*editParam)++;
-					}
-					else if (key == KEY_DEC)
-					{
-						(*editParam)--;
-					}
-					break;
-
-					if (*editParam > time_out_2_on_max)
-						*editParam = 2;
-					else if (*editParam < time_out_2_on_min)
-						*editParam = 2;
-				case 7:
+				case LVL_WORK:
 					if (cntOut1on > 0)
 					{
 						setPosLcd(1, 7);
@@ -428,8 +419,11 @@ int main(void)
 					if (key == KEY_INC)
 					{
 						if (sost == SOST_PUSK)
+						{
 							sost = SOST_STOP;
-						lvl_menu = 0;
+							ctrlNewCycle();
+						}
+						eLvlMenu = LVL_START;
 					}
 					else if (key == KEY_SAVE)
 					{
@@ -438,6 +432,7 @@ int main(void)
 					break;
 				}
 			}
+			saveParamToEeprom();
 			refreshLcd();
 		}
 	};

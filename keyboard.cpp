@@ -32,7 +32,7 @@ KEYS getKey(void)
 void scanKey(void)
 {
 	static uint8_t last_keys = PIN_BUT_MASK;
-	static uint8_t cnt_delay = 0;
+	static uint16_t cnt_delay = 0;
 
 	uint8_t tmp = PIN_BUT & PIN_BUT_MASK;
 
@@ -49,12 +49,13 @@ void scanKey(void)
 		// проверка длительности нажатия
 		if (cnt_delay < TIME_DELAY)
 		{
+			// защита от помех + антидребезг
 			cnt_delay++;
 		}
 		else if (cnt_delay == TIME_DELAY)
 		{
-			tmp = ~tmp;
 			// проверим нажатую кнопку
+			tmp = ~tmp;
 			if (tmp & (1 << PIN_BUT_SAVE))
 				key = KEY_SAVE;
 			else if (tmp & (1 << PIN_BUT_MENU))
@@ -65,6 +66,20 @@ void scanKey(void)
 				key = KEY_DEC;
 			else
 				key = KEY_NO;
+
+			cnt_delay++;
+		}
+		else if (cnt_delay < TIME_LONG_DELAY)
+		{
+			// ожидание времени до определения длительного нажатия
+			cnt_delay++;
+		}
+		else if (cnt_delay == TIME_LONG_DELAY)
+		{
+			// проверим длительное нажатие кнопки
+			tmp = ~tmp;
+			if (tmp & (1 << PIN_BUT_INC))
+				key = KEY_INC_LONG;
 
 			cnt_delay++;
 		}

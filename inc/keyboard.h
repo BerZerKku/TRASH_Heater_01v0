@@ -14,6 +14,7 @@ enum KEYS
 	KEY_SAVE,
 	KEY_MENU,
 	KEY_INC,
+	KEY_INC_LONG,
 	KEY_DEC
 };
 
@@ -28,7 +29,9 @@ enum KEYS
 #define PIN_BUT_MASK	((1 << PIN_BUT_SAVE) | (1 << PIN_BUT_MENU) | \
 						 (1 << PIN_BUT_INC)	 | (1 << PIN_BUT_DEC))
 
-#define TIME_DELAY 5
+#define TIME_DELAY 20
+
+#define TIME_LONG_DELAY 5000
 
 // инициализация используемой периферии
 extern void initKeyboard(void);
